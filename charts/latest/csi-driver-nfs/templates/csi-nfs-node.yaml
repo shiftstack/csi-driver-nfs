@@ -7,6 +7,10 @@ metadata:
   namespace: {{ .Release.Namespace }}
 {{ include "nfs.labels" . | indent 2 }}
 spec:
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: {{ .Values.node.maxUnavailable }}
+    type: RollingUpdate
   selector:
     matchLabels:
       app: {{ .Values.node.name }}
@@ -55,8 +59,10 @@ spec:
           args:
             - --v=2
             - --csi-address=/csi/csi.sock
-            - --kubelet-registration-path=/var/lib/kubelet/plugins/csi-nfsplugin/csi.sock
+            - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
           env:
+            - name: DRIVER_REG_SOCK_PATH
+              value: /var/lib/kubelet/plugins/csi-nfsplugin/csi.sock
             - name: KUBE_NODE_NAME
               valueFrom:
                 fieldRef:
