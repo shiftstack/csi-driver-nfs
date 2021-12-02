@@ -5,18 +5,21 @@
 
 This is a repository for [NFS](https://en.wikipedia.org/wiki/Network_File_System) [CSI](https://kubernetes-csi.github.io/docs/) Driver, csi plugin name: `nfs.csi.k8s.io`
 
+### Project status: Beta
+
 ### Container Images & Kubernetes Compatibility:
-|driver version  | supported k8s version |
-|----------------|-----------------------|
-|master branch   | 1.19+                 |
-|v2.0.0          | 1.14+                 |
+|driver version  | supported k8s version | status |
+|----------------|-----------------------|--------|
+|master branch   | 1.19+                 | beta   |
+|v3.0.0          | 1.19+                 | beta   |
+|v2.0.0          | 1.14+                 | alpha  |
 
 ### Requirements
 
 This driver requires existing NFSv3 or NFSv4 server.
 
 ### Install driver on a Kubernetes cluster
- - install by [kubectl](./docs/install-csi-driver.md)
+ - install by [kubectl](./docs/install-nfs-csi-driver.md)
  - install by [helm charts](./charts)
 
 ### Driver parameters
