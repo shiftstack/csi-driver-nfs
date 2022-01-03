@@ -24,6 +24,13 @@ rbac:
   create: true
   name: nfs
 
+driver:
+  name: nfs.csi.k8s.io
+  mountPermissions: "0777"
+
+feature:
+  enableFSGroupPolicy: false
+
 controller:
   name: csi-nfs-controller
   replicas: 2
@@ -41,21 +48,18 @@ controller:
   resources:
     csiProvisioner:
       limits:
-        cpu: 1
         memory: 400Mi
       requests:
         cpu: 10m
         memory: 20Mi
     livenessProbe:
       limits:
-        cpu: 1
         memory: 100Mi
       requests:
         cpu: 10m
         memory: 20Mi
     nfs:
       limits:
-        cpu: 1
         memory: 200Mi
       requests:
         cpu: 10m
@@ -72,31 +76,22 @@ node:
   resources:
     livenessProbe:
       limits:
-        cpu: 1
         memory: 100Mi
       requests:
         cpu: 10m
         memory: 20Mi
     nodeDriverRegistrar:
       limits:
-        cpu: 1
         memory: 100Mi
       requests:
         cpu: 10m
         memory: 20Mi
     nfs:
       limits:
-        cpu: 1
         memory: 300Mi
       requests:
         cpu: 10m
         memory: 20Mi
-
-feature:
-  enableFSGroupPolicy: false
-
-driver:
-  name: nfs.csi.k8s.io
 
 ## Reference to one or more secrets to be used when pulling images
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
