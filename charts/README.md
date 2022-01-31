@@ -5,17 +5,16 @@
 
 ### Tips
  - make controller only run on master node: `--set controller.runOnMaster=true`
- - set replica of controller as `1`: `--set controller.replicas=1`
- - enable `fsGroupPolicy` on a k8s 1.20+ cluster (this feature is in beta, check details [here](../deploy/example/fsgroup)): `--set feature.enableFSGroupPolicy=true`
+ - set replica of controller as `2`: `--set controller.replicas=2`
 
 ### install a specific version
 ```console
 helm repo add csi-driver-nfs https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts
-helm install csi-driver-nfs csi-driver-nfs/csi-driver-nfs --namespace kube-system --version v3.0.0
+helm install csi-driver-nfs csi-driver-nfs/csi-driver-nfs --namespace kube-system --version v3.1.0
 ```
 
 ### install driver with customized driver name, deployment name
-> only supported from `v3.0.0`+
+> only supported from `v3.1.0`+
  - following example would install a driver with name `nfs2`
 ```console
 helm install csi-driver-nfs2 csi-driver-nfs/csi-driver-nfs --namespace kube-system --set driver.name="nfs2.csi.k8s.io" --set controller.name="csi-nfs2-controller" --set rbac.name=nfs2 --set serviceAccount.controller=csi-nfs2-controller-sa --set serviceAccount.node=csi-nfs2-node-sa --set node.name=csi-nfs2-node --set node.livenessProbe.healthPort=39653
@@ -39,12 +38,14 @@ The following table lists the configurable parameters of the latest NFS CSI Driv
 |---------------------------------------------------|------------------------------------------------------------|-------------------------------------------------------------------|
 | `driver.name`                                     | alternative driver name                                    | `nfs.csi.k8s.io` |
 | `driver.mountPermissions`                         | mounted folder permissions name                            | `0777`
-| `feature.enableFSGroupPolicy`                     | enable `fsGroupPolicy` on a k8s 1.20+ cluster              | `false`                      |
+| `feature.enableFSGroupPolicy`                     | enable `fsGroupPolicy` on a k8s 1.20+ cluster              | `true`                      |
+| `feature.enableInlineVolume`                      | enable inline volume                     | `false`                      |
+| `kubeletDir`                                      | alternative kubelet directory                              | `/var/lib/kubelet`                                                  |
 | `image.nfs.repository`                            | csi-driver-nfs image                                       | `mcr.microsoft.com/k8s/csi/nfs-csi`                          |
 | `image.nfs.tag`                                   | csi-driver-nfs image tag                                   | `latest`                                                |
 | `image.nfs.pullPolicy`                            | csi-driver-nfs image pull policy                           | `IfNotPresent`                                                      |
 | `image.csiProvisioner.repository`                 | csi-provisioner docker image                               | `k8s.gcr.io/sig-storage/csi-provisioner`                            |
-| `image.csiProvisioner.tag`                        | csi-provisioner docker image tag                           | `v2.0.4`                                                            |
+| `image.csiProvisioner.tag`                        | csi-provisioner docker image tag                           | `v3.1.0`                                                            |
 | `image.csiProvisioner.pullPolicy`                 | csi-provisioner image pull policy                          | `IfNotPresent`                                                      |
 | `image.livenessProbe.repository`                  | liveness-probe docker image                                | `k8s.gcr.io/sig-storage/livenessprobe`                              |
 | `image.livenessProbe.tag`                         | liveness-probe docker image tag                            | `v2.5.0`                                                            |
@@ -55,9 +56,10 @@ The following table lists the configurable parameters of the latest NFS CSI Driv
 | `imagePullSecrets`                                | Specify docker-registry secret names as an array           | [] (does not add image pull secrets to deployed pods)                                                           |
 | `serviceAccount.create`                           | whether create service account of csi-nfs-controller       | `true`                                                              |
 | `rbac.create`                                     | whether create rbac of csi-nfs-controller                  | `true`                                                              |
-| `controller.replicas`                             | the replicas of csi-nfs-controller                         | `2`                                                                 |
+| `controller.replicas`                             | replica number of csi-nfs-controller                         | `1`                                                                 |
 | `controller.runOnMaster`                          | run controller on master node                              | `false`                                                             |
 | `controller.logLevel`                             | controller driver log level                                                          |`5`                                                           |
+| `controller.workingMountDir`                      | working directory for provisioner to mount nfs shares temporarily                  | `/tmp`                                                             |
 | `controller.tolerations`                              | controller pod tolerations                            |                                                              |
 | `controller.resources.csiProvisioner.limits.memory`   | csi-provisioner memory limits                         | 100Mi                                                          |
 | `controller.resources.csiProvisioner.requests.cpu`    | csi-provisioner cpu requests limits                   | 10m                                                            |
