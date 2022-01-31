@@ -37,16 +37,17 @@ import (
 const (
 	kubeconfigEnvVar  = "KUBECONFIG"
 	testWindowsEnvVar = "TEST_WINDOWS"
+	nfsServerAddress  = "nfs-server.default.svc.cluster.local"
+	nfsShare          = "/"
 )
 
 var (
 	nodeID                        = os.Getenv("NODE_ID")
-	perm                          *uint32
 	nfsDriver                     *nfs.Driver
 	isWindowsCluster              = os.Getenv(testWindowsEnvVar) != ""
 	defaultStorageClassParameters = map[string]string{
-		"server": "nfs-server.default.svc.cluster.local",
-		"share":  "/",
+		"server": nfsServerAddress,
+		"share":  nfsShare,
 		"csi.storage.k8s.io/provisioner-secret-name":      "mount-options",
 		"csi.storage.k8s.io/provisioner-secret-namespace": "default",
 	}
@@ -70,7 +71,12 @@ var _ = ginkgo.BeforeSuite(func() {
 	handleFlags()
 	framework.AfterReadingAllFlags(&framework.TestContext)
 
-	nfsDriver = nfs.NewDriver(nodeID, nfs.DefaultDriverName, fmt.Sprintf("unix:///tmp/csi-%s.sock", uuid.NewUUID().String()), perm)
+	options := nfs.DriverOptions{
+		NodeID:     nodeID,
+		DriverName: nfs.DefaultDriverName,
+		Endpoint:   fmt.Sprintf("unix:///tmp/csi-%s.sock", uuid.NewUUID().String()),
+	}
+	nfsDriver = nfs.NewDriver(&options)
 	controllerServer = nfs.NewControllerServer(nfsDriver)
 
 	// install nfs server

@@ -34,8 +34,6 @@ import (
 // ControllerServer controller server setting
 type ControllerServer struct {
 	Driver *Driver
-	// Working directory for the provisioner to temporarily mount nfs shares at
-	workingMountDir string
 }
 
 // nfsVolume is an internal representation of a volume
@@ -68,6 +66,8 @@ const (
 	totalIDElements // Always last
 )
 
+const separator = "#"
+
 // CreateVolume create a volume
 func (cs *ControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
 	name := req.GetName()
@@ -98,10 +98,7 @@ func (cs *ControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 		}
 	}()
 
-	fileMode := os.FileMode(0777)
-	if cs.Driver.perm != nil {
-		fileMode = os.FileMode(*cs.Driver.perm)
-	}
+	fileMode := os.FileMode(cs.Driver.mountPermissions)
 	// Create subdirectory under base-dir
 	internalVolumePath := cs.getInternalVolumePath(nfsVol)
 	if err = os.Mkdir(internalVolumePath, fileMode); err != nil && !os.IsExist(err) {
@@ -120,7 +117,7 @@ func (cs *ControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 	if volumeID == "" {
 		return nil, status.Error(codes.InvalidArgument, "volume id is empty")
 	}
-	nfsVol, err := cs.getNfsVolFromID(volumeID)
+	nfsVol, err := getNfsVolFromID(volumeID)
 	if err != nil {
 		// An invalid ID should be treated as doesn't exist
 		klog.Warningf("failed to get nfs volume for volume id %v deletion: %v", volumeID, err)
@@ -140,7 +137,7 @@ func (cs *ControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 		}
 	}
 
-	// Mount nfs base share so we can delete the subdirectory
+	// mount nfs base share so we can delete the subdirectory
 	if err = cs.internalMount(ctx, nfsVol, volCap); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to mount nfs server: %v", err.Error())
 	}
@@ -150,7 +147,7 @@ func (cs *ControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 		}
 	}()
 
-	// Delete subdirectory under base-dir
+	// delete subdirectory under base-dir
 	internalVolumePath := cs.getInternalVolumePath(nfsVol)
 
 	klog.V(2).Infof("Removing subdirectory at %v", internalVolumePath)
@@ -181,8 +178,12 @@ func (cs *ControllerServer) ValidateVolumeCapabilities(ctx context.Context, req 
 		return nil, status.Error(codes.InvalidArgument, "Volume capabilities missing in request")
 	}
 
-	// supports all AccessModes, no need to check capabilities here
-	return &csi.ValidateVolumeCapabilitiesResponse{Message: ""}, nil
+	return &csi.ValidateVolumeCapabilitiesResponse{
+		Confirmed: &csi.ValidateVolumeCapabilitiesResponse_Confirmed{
+			VolumeCapabilities: req.GetVolumeCapabilities(),
+		},
+		Message: "",
+	}, nil
 }
 
 func (cs *ControllerServer) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
@@ -265,7 +266,7 @@ func (cs *ControllerServer) internalMount(ctx context.Context, vol *nfsVolume, v
 		}
 	}
 
-	klog.V(4).Infof("internally mounting %v:%v at %v", vol.server, sharePath, targetPath)
+	klog.V(2).Infof("internally mounting %v:%v at %v", vol.server, sharePath, targetPath)
 	_, err := cs.Driver.ns.NodePublishVolume(ctx, &csi.NodePublishVolumeRequest{
 		TargetPath: targetPath,
 		VolumeContext: map[string]string{
@@ -293,10 +294,7 @@ func (cs *ControllerServer) internalUnmount(ctx context.Context, vol *nfsVolume)
 
 // Convert VolumeCreate parameters to an nfsVolume
 func (cs *ControllerServer) newNFSVolume(name string, size int64, params map[string]string) (*nfsVolume, error) {
-	var (
-		server  string
-		baseDir string
-	)
+	var server, baseDir string
 
 	// validate parameters (case-insensitive)
 	for k, v := range params {
@@ -310,7 +308,6 @@ func (cs *ControllerServer) newNFSVolume(name string, size int64, params map[str
 		}
 	}
 
-	// validate required parameters
 	if server == "" {
 		return nil, fmt.Errorf("%v is a required parameter", paramServer)
 	}
@@ -331,11 +328,7 @@ func (cs *ControllerServer) newNFSVolume(name string, size int64, params map[str
 
 // Get working directory for CreateVolume and DeleteVolume
 func (cs *ControllerServer) getInternalMountPath(vol *nfsVolume) string {
-	// use default if empty
-	if cs.workingMountDir == "" {
-		cs.workingMountDir = "/tmp"
-	}
-	return filepath.Join(cs.workingMountDir, vol.subDir)
+	return filepath.Join(cs.Driver.workingMountDir, vol.subDir)
 }
 
 // Get internal path where the volume is created
@@ -372,21 +365,37 @@ func (cs *ControllerServer) getVolumeIDFromNfsVol(vol *nfsVolume) string {
 	idElements[idServer] = strings.Trim(vol.server, "/")
 	idElements[idBaseDir] = strings.Trim(vol.baseDir, "/")
 	idElements[idSubDir] = strings.Trim(vol.subDir, "/")
-	return strings.Join(idElements, "/")
+	return strings.Join(idElements, separator)
 }
 
 // Given a CSI volume id, return a nfsVolume
-func (cs *ControllerServer) getNfsVolFromID(id string) (*nfsVolume, error) {
-	volRegex := regexp.MustCompile("^([^/]+)/(.*)/([^/]+)$")
-	tokens := volRegex.FindStringSubmatch(id)
-	if tokens == nil {
-		return nil, fmt.Errorf("Could not split %q into server, baseDir and subDir", id)
+// sample volume Id:
+//   new volumeID: nfs-server.default.svc.cluster.local#share#pvc-4bcbf944-b6f7-4bd0-b50f-3c3dd00efc64
+//   old volumeID: nfs-server.default.svc.cluster.local/share/pvc-4bcbf944-b6f7-4bd0-b50f-3c3dd00efc64
+func getNfsVolFromID(id string) (*nfsVolume, error) {
+	var server, baseDir, subDir string
+	segments := strings.Split(id, separator)
+	if len(segments) < 3 {
+		klog.V(2).Infof("could not split %s into server, baseDir and subDir with separator(%s)", id, separator)
+		// try with separator "/""
+		volRegex := regexp.MustCompile("^([^/]+)/(.*)/([^/]+)$")
+		tokens := volRegex.FindStringSubmatch(id)
+		if tokens == nil {
+			return nil, fmt.Errorf("could not split %s into server, baseDir and subDir with separator(%s)", id, "/")
+		}
+		server = tokens[1]
+		baseDir = tokens[2]
+		subDir = tokens[3]
+	} else {
+		server = segments[0]
+		baseDir = segments[1]
+		subDir = segments[2]
 	}
 
 	return &nfsVolume{
 		id:      id,
-		server:  tokens[1],
-		baseDir: tokens[2],
-		subDir:  tokens[3],
+		server:  server,
+		baseDir: baseDir,
+		subDir:  subDir,
 	}, nil
 }

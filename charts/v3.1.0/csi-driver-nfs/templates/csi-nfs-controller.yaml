@@ -95,7 +95,7 @@ spec:
             periodSeconds: 30
           volumeMounts:
             - name: pods-mount-dir
-              mountPath: {{ .Values.kubeletDir }}/pods
+              mountPath: /var/lib/kubelet/pods
               mountPropagation: "Bidirectional"
             - mountPath: /csi
               name: socket-dir
@@ -103,7 +103,7 @@ spec:
       volumes:
         - name: pods-mount-dir
           hostPath:
-            path: {{ .Values.kubeletDir }}/pods
+            path: /var/lib/kubelet/pods
             type: Directory
         - name: socket-dir
           emptyDir: {}
