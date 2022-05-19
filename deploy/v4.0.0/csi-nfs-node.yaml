@@ -1,6 +1,4 @@
 ---
-# This YAML file contains driver-registrar & csi driver nodeplugin API objects
-# that are necessary to run CSI nodeplugin for nfs
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
@@ -20,14 +18,14 @@ spec:
         app: csi-nfs-node
     spec:
       hostNetwork: true  # original nfs connection would be broken without hostNetwork setting
-      dnsPolicy: ClusterFirstWithHostNet
+      dnsPolicy: Default  # available values: Default, ClusterFirstWithHostNet, ClusterFirst
       nodeSelector:
         kubernetes.io/os: linux
       tolerations:
         - operator: "Exists"
       containers:
         - name: liveness-probe
-          image: registry.k8s.io/sig-storage/livenessprobe:v2.5.0
+          image: registry.k8s.io/sig-storage/livenessprobe:v2.6.0
           args:
             - --csi-address=/csi/csi.sock
             - --probe-timeout=3s
@@ -38,13 +36,12 @@ spec:
               mountPath: /csi
           resources:
             limits:
-              cpu: 1
               memory: 100Mi
             requests:
               cpu: 10m
               memory: 20Mi
         - name: node-driver-registrar
-          image: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.4.0
+          image: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.5.0
           args:
             - --v=2
             - --csi-address=/csi/csi.sock
@@ -71,7 +68,6 @@ spec:
               mountPath: /registration
           resources:
             limits:
-              cpu: 1
               memory: 100Mi
             requests:
               cpu: 10m
@@ -82,7 +78,7 @@ spec:
             capabilities:
               add: ["SYS_ADMIN"]
             allowPrivilegeEscalation: true
-          image: registry.k8s.io/sig-storage/nfsplugin:v3.0.0
+          image: registry.k8s.io/sig-storage/nfsplugin:v4.0.0
           args:
             - "-v=5"
             - "--nodeid=$(NODE_ID)"
@@ -115,7 +111,6 @@ spec:
               mountPropagation: "Bidirectional"
           resources:
             limits:
-              cpu: 1
               memory: 300Mi
             requests:
               cpu: 10m

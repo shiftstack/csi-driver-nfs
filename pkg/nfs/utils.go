@@ -18,6 +18,7 @@ package nfs
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 
@@ -28,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"k8s.io/klog/v2"
+	netutil "k8s.io/utils/net"
 )
 
 func NewDefaultIdentityServer(d *Driver) *IdentityServer {
@@ -131,4 +133,30 @@ func getMountOptions(context map[string]string) string {
 		}
 	}
 	return ""
+}
+
+// chmodIfPermissionMismatch only perform chmod when permission mismatches
+func chmodIfPermissionMismatch(targetPath string, mode os.FileMode) error {
+	info, err := os.Lstat(targetPath)
+	if err != nil {
+		return err
+	}
+	perm := info.Mode() & os.ModePerm
+	if perm != mode {
+		klog.V(2).Infof("chmod targetPath(%s, mode:0%o) with permissions(0%o)", targetPath, info.Mode(), mode)
+		if err := os.Chmod(targetPath, mode); err != nil {
+			return err
+		}
+	} else {
+		klog.V(2).Infof("skip chmod on targetPath(%s) since mode is already 0%o)", targetPath, info.Mode())
+	}
+	return nil
+}
+
+// getServerFromSource if server is IPv6, return [IPv6]
+func getServerFromSource(server string) string {
+	if netutil.IsIPv6String(server) {
+		return fmt.Sprintf("[%s]", server)
+	}
+	return server
 }
