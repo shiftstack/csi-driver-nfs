@@ -65,6 +65,7 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 
 	var server, baseDir string
 	mountPermissions := ns.Driver.mountPermissions
+	performChmodOp := (mountPermissions > 0)
 	for k, v := range req.GetVolumeContext() {
 		switch strings.ToLower(k) {
 		case paramServer:
@@ -78,8 +79,14 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		case mountPermissionsField:
 			if v != "" {
 				var err error
-				if mountPermissions, err = strconv.ParseUint(v, 8, 32); err != nil {
+				var perm uint64
+				if perm, err = strconv.ParseUint(v, 8, 32); err != nil {
 					return nil, status.Errorf(codes.InvalidArgument, fmt.Sprintf("invalid mountPermissions %s", v))
+				}
+				if perm == 0 {
+					performChmodOp = false
+				} else {
+					mountPermissions = perm
 				}
 			}
 		}
@@ -91,6 +98,7 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	if baseDir == "" {
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("%v is a required parameter", paramShare))
 	}
+	server = getServerFromSource(server)
 	source := fmt.Sprintf("%s:%s", server, baseDir)
 
 	notMnt, err := ns.mounter.IsLikelyNotMountPoint(targetPath)
@@ -120,10 +128,14 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	klog.V(2).Infof("volumeID(%v): mount targetPath(%s) with permissions(0%o)", volumeID, targetPath, mountPermissions)
-	if err := os.Chmod(targetPath, os.FileMode(mountPermissions)); err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+	if performChmodOp {
+		if err := chmodIfPermissionMismatch(targetPath, os.FileMode(mountPermissions)); err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+	} else {
+		klog.V(2).Infof("skip chmod on targetPath(%s) since mountPermissions is set as 0", targetPath)
 	}
+	klog.V(2).Infof("volume(%s) mount %s on %s succeeded", volumeID, source, targetPath)
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
@@ -154,36 +166,12 @@ func (ns *NodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 	if len(targetPath) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Target path missing in request")
 	}
-	klog.V(6).Infof("NodeUnpublishVolume started for %s", targetPath)
-
-	notMnt, err := ns.IsNotMountPoint(targetPath)
+	klog.V(2).Infof("NodeUnpublishVolume: unmounting volume %s on %s", volumeID, targetPath)
+	err := mount.CleanupMountPoint(targetPath, ns.mounter, true /*extensiveMountPointCheck*/)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, status.Errorf(codes.Internal, "failed to unmount target %q: %v", targetPath, err)
 	}
-
-	klog.V(4).Infof("NodeUnpublishVolume: path %s is *not* a mount point: %t", targetPath, notMnt)
-	if !notMnt {
-
-		err := ns.tryUnmount(targetPath)
-		if err != nil {
-			if err == context.DeadlineExceeded {
-				klog.V(2).Infof("Timed out waiting for unmount of %s, trying with -f", targetPath)
-				err = ns.forceUnmount(targetPath)
-			}
-		}
-		if err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
-		}
-		klog.V(2).Infof("Unmounted %s", targetPath)
-	}
-
-	klog.V(2).Infof("NodeUnpublishVolume: Remove %s on volumeID(%s)", targetPath, volumeID)
-	if err := os.Remove(targetPath); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, status.Error(codes.Internal, err.Error())
-		}
-	}
-	klog.V(4).Infof("Cleaned %s", targetPath)
+	klog.V(2).Infof("NodeUnpublishVolume: unmount volume %s on %s successfully", volumeID, targetPath)
 
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }

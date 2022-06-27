@@ -21,6 +21,7 @@ import (
 	"errors"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -44,6 +45,11 @@ func TestNodePublishVolume(t *testing.T) {
 		"server":              "server",
 		"share":               "share",
 		mountPermissionsField: "0755",
+	}
+	paramsWithZeroPermissions := map[string]string{
+		"server":              "server",
+		"share":               "share",
+		mountPermissionsField: "0",
 	}
 
 	invalidParams := map[string]string{
@@ -120,6 +126,16 @@ func TestNodePublishVolume(t *testing.T) {
 			expectedErr: nil,
 		},
 		{
+			desc: "[Success] Valid request with 0 mountPermissions",
+			req: csi.NodePublishVolumeRequest{
+				VolumeContext:    paramsWithZeroPermissions,
+				VolumeCapability: &csi.VolumeCapability{AccessMode: &volumeCap},
+				VolumeId:         "vol_1",
+				TargetPath:       targetTest,
+				Readonly:         true},
+			expectedErr: nil,
+		},
+		{
 			desc: "[Error] invalid mountPermissions",
 			req: csi.NodePublishVolumeRequest{
 				VolumeContext:    invalidParams,
@@ -188,13 +204,12 @@ func TestNodeUnpublishVolume(t *testing.T) {
 		{
 			desc:        "[Error] Unmount error mocked by IsLikelyNotMountPoint",
 			req:         csi.NodeUnpublishVolumeRequest{TargetPath: errorTarget, VolumeId: "vol_1"},
-			expectedErr: status.Error(codes.Internal, "fake IsLikelyNotMountPoint: fake error"),
+			expectedErr: fmt.Errorf("fake IsLikelyNotMountPoint: fake error"),
 		},
 		// Downstream doesn't raise any error if the target is not mounted
 		{
-			desc:        "[Error] Volume not mounted",
-			req:         csi.NodeUnpublishVolumeRequest{TargetPath: targetFile, VolumeId: "vol_1"},
-			expectedErr: status.Error(codes.NotFound, "Volume not mounted"),
+			desc: "[Success] Volume not mounted",
+			req:  csi.NodeUnpublishVolumeRequest{TargetPath: targetFile, VolumeId: "vol_1"},
 		},
 		*/
 	}
@@ -208,7 +223,9 @@ func TestNodeUnpublishVolume(t *testing.T) {
 		}
 		_, err := ns.NodeUnpublishVolume(context.Background(), &tc.req)
 		if !reflect.DeepEqual(err, tc.expectedErr) {
-			t.Errorf("Desc:%v\nUnexpected error: %v\nExpected: %v", tc.desc, err, tc.expectedErr)
+			if err == nil || tc.expectedErr == nil || !strings.Contains(err.Error(), tc.expectedErr.Error()) {
+				t.Errorf("Desc:%v\nUnexpected error: %v\nExpected: %v", tc.desc, err, tc.expectedErr)
+			}
 		}
 		if tc.cleanup != nil {
 			tc.cleanup()
