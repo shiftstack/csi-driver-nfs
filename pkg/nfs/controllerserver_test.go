@@ -27,6 +27,7 @@ import (
 	"fmt"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -37,16 +38,12 @@ const (
 	testServer            = "test-server"
 	testBaseDir           = "test-base-dir"
 	testBaseDirNested     = "test/base/dir"
-	testCSIVolume         = "test-csi"
-	testVolumeID          = "test-server/test-base-dir/test-csi"
-	newTestVolumeID       = "test-server#test-base-dir#test-csi"
-	testVolumeIDNested    = "test-server/test/base/dir/test-csi"
-	newTestVolumeIDNested = "test-server#test/base/dir#test-csi"
-)
-
-// for Windows support in the future
-var (
-	testShare = filepath.Join(string(filepath.Separator), testBaseDir, string(filepath.Separator), testCSIVolume)
+	testCSIVolume         = "volume-name"
+	testVolumeID          = "test-server/test-base-dir/volume-name"
+	newTestVolumeID       = "test-server#test-base-dir#volume-name#"
+	testVolumeIDNested    = "test-server/test/base/dir/volume-name"
+	newTestVolumeIDNested = "test-server#test/base/dir#volume-name#"
+	newTestVolumeIDUUID   = "test-server#test-base-dir#volume-name#uuid"
 )
 
 func initTestController(t *testing.T) *ControllerServer {
@@ -110,7 +107,8 @@ func TestCreateVolume(t *testing.T) {
 					VolumeId: newTestVolumeID,
 					VolumeContext: map[string]string{
 						paramServer:           testServer,
-						paramShare:            testShare,
+						paramShare:            testBaseDir,
+						paramSubDir:           testCSIVolume,
 						mountPermissionsField: "0750",
 					},
 				},
@@ -133,14 +131,16 @@ func TestCreateVolume(t *testing.T) {
 				Parameters: map[string]string{
 					paramServer: testServer,
 					paramShare:  testBaseDir,
+					paramSubDir: testCSIVolume,
 				},
 			},
 			resp: &csi.CreateVolumeResponse{
 				Volume: &csi.Volume{
-					VolumeId: newTestVolumeID,
+					VolumeId: newTestVolumeID + testCSIVolume,
 					VolumeContext: map[string]string{
 						paramServer: testServer,
-						paramShare:  testShare,
+						paramShare:  testBaseDir,
+						paramSubDir: testCSIVolume,
 					},
 				},
 			},
@@ -417,6 +417,18 @@ func TestNfsVolFromId(t *testing.T) {
 			},
 			expectErr: false,
 		},
+		{
+			name:     "valid request nested baseDir with newTestVolumeIDNested",
+			volumeID: newTestVolumeIDUUID,
+			resp: &nfsVolume{
+				id:      newTestVolumeIDUUID,
+				server:  testServer,
+				baseDir: testBaseDir,
+				subDir:  testCSIVolume,
+				uuid:    "uuid",
+			},
+			expectErr: false,
+		},
 	}
 
 	for _, test := range cases {
@@ -476,6 +488,128 @@ func TestIsValidVolumeCapabilities(t *testing.T) {
 		err := isValidVolumeCapabilities(test.volCaps)
 		if !reflect.DeepEqual(err, test.expectErr) {
 			t.Errorf("[test: %s] Unexpected error: %v, expected error: %v", test.desc, err, test.expectErr)
+		}
+	}
+}
+
+func TestGetInternalMountPath(t *testing.T) {
+	cases := []struct {
+		desc            string
+		workingMountDir string
+		vol             *nfsVolume
+		result          string
+	}{
+		{
+			desc:            "nil volume",
+			workingMountDir: "/tmp",
+			result:          "",
+		},
+		{
+			desc:            "uuid not empty",
+			workingMountDir: "/tmp",
+			vol: &nfsVolume{
+				subDir: "subdir",
+				uuid:   "uuid",
+			},
+			result: filepath.Join("/tmp", "uuid"),
+		},
+		{
+			desc:            "uuid empty",
+			workingMountDir: "/tmp",
+			vol: &nfsVolume{
+				subDir: "subdir",
+				uuid:   "",
+			},
+			result: filepath.Join("/tmp", "subdir"),
+		},
+	}
+
+	for _, test := range cases {
+		path := getInternalMountPath(test.workingMountDir, test.vol)
+		assert.Equal(t, path, test.result)
+	}
+}
+
+func TestNewNFSVolume(t *testing.T) {
+	cases := []struct {
+		desc      string
+		name      string
+		size      int64
+		params    map[string]string
+		expectVol *nfsVolume
+		expectErr error
+	}{
+		{
+			desc: "subDir is specified",
+			name: "pv-name",
+			size: 100,
+			params: map[string]string{
+				paramServer: "//nfs-server.default.svc.cluster.local",
+				paramShare:  "share",
+				paramSubDir: "subdir",
+			},
+			expectVol: &nfsVolume{
+				id:      "nfs-server.default.svc.cluster.local#share#subdir#pv-name",
+				server:  "//nfs-server.default.svc.cluster.local",
+				baseDir: "share",
+				subDir:  "subdir",
+				size:    100,
+				uuid:    "pv-name",
+			},
+		},
+		{
+			desc: "subDir with pv/pvc metadata is specified",
+			name: "pv-name",
+			size: 100,
+			params: map[string]string{
+				paramServer:     "//nfs-server.default.svc.cluster.local",
+				paramShare:      "share",
+				paramSubDir:     fmt.Sprintf("subdir-%s-%s-%s", pvcNameMetadata, pvcNamespaceMetadata, pvNameMetadata),
+				pvcNameKey:      "pvcname",
+				pvcNamespaceKey: "pvcnamespace",
+				pvNameKey:       "pvname",
+			},
+			expectVol: &nfsVolume{
+				id:      "nfs-server.default.svc.cluster.local#share#subdir-pvcname-pvcnamespace-pvname#pv-name",
+				server:  "//nfs-server.default.svc.cluster.local",
+				baseDir: "share",
+				subDir:  "subdir-pvcname-pvcnamespace-pvname",
+				size:    100,
+				uuid:    "pv-name",
+			},
+		},
+		{
+			desc: "subDir not specified",
+			name: "pv-name",
+			size: 200,
+			params: map[string]string{
+				paramServer: "//nfs-server.default.svc.cluster.local",
+				paramShare:  "share",
+			},
+			expectVol: &nfsVolume{
+				id:      "nfs-server.default.svc.cluster.local#share#pv-name#",
+				server:  "//nfs-server.default.svc.cluster.local",
+				baseDir: "share",
+				subDir:  "pv-name",
+				size:    200,
+				uuid:    "",
+			},
+		},
+		{
+			desc:      "server value is empty",
+			params:    map[string]string{},
+			expectVol: nil,
+			expectErr: fmt.Errorf("%s is a required parameter", paramServer),
+		},
+	}
+
+	for _, test := range cases {
+		vol, err := newNFSVolume(test.name, test.size, test.params)
+		if !reflect.DeepEqual(err, test.expectErr) {
+			t.Errorf("[test: %s] Unexpected error: %v, expected error: %v", test.desc, err, test.expectErr)
+		}
+		if !reflect.DeepEqual(vol, test.expectVol) {
+			t.Errorf("[test: %s] Unexpected vol: %v, expected vol: %v", test.desc, vol, test.expectVol)
 		}
 	}
 }

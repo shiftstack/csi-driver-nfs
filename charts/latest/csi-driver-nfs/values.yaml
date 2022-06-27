@@ -6,7 +6,7 @@ image:
         pullPolicy: IfNotPresent
     csiProvisioner:
         repository: registry.k8s.io/sig-storage/csi-provisioner
-        tag: v3.1.0
+        tag: v3.2.0
         pullPolicy: IfNotPresent
     livenessProbe:
         repository: registry.k8s.io/sig-storage/livenessprobe
@@ -39,11 +39,14 @@ controller:
   name: csi-nfs-controller
   replicas: 1
   runOnMaster: false
+  runOnControlPlane: false
   livenessProbe:
     healthPort: 29652
   logLevel: 5
   workingMountDir: "/tmp"
   dnsPolicy: Default  # available values: Default, ClusterFirstWithHostNet, ClusterFirst
+  affinity: {}
+  nodeSelector: {}
   tolerations:
     - key: "node-role.kubernetes.io/master"
       operator: "Exists"
@@ -81,6 +84,8 @@ node:
   logLevel: 5
   livenessProbe:
     healthPort: 29653
+  affinity: {}
+  nodeSelector: {}
   tolerations:
     - operator: "Exists"
   resources:
