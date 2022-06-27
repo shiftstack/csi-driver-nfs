@@ -8,6 +8,7 @@ Name | Meaning | Example Value | Mandatory | Default value
 --- | --- | --- | --- | ---
 server | NFS Server address | domain name `nfs-server.default.svc.cluster.local` <br>or IP address `127.0.0.1` | Yes |
 share | NFS share path | `/` | Yes |
+subDir | sub directory under nfs share |  | No | if sub directory does not exist, this driver would create a new one
 mountPermissions | mounted folder permissions. The default is `0777`, if set as `0`, driver will not perform `chmod` after mount |  | No |
 
 ### PV/PVC usage (static provisioning)
@@ -20,6 +21,12 @@ volumeAttributes.share | NFS share path | `/` |  Yes  |
 volumeAttributes.mountPermissions | mounted folder permissions. The default is `0777` |  | No |
 
 ### Tips
+#### `subDir` parameter supports following pv/pvc metadata conversion
+> if `subDir` value contains following strings, it would be converted into corresponding pv/pvc name or namespace
+ - `${pvc.metadata.name}`
+ - `${pvc.metadata.namespace}`
+ - `${pv.metadata.name}`
+
 #### provide `mountOptions` for `DeleteVolume`
 > since `DeleteVolumeRequest` does not provide `mountOptions`, following is the workaround to provide `mountOptions` for `DeleteVolume`, check details [here](https://github.com/kubernetes-csi/csi-driver-nfs/issues/260)
   - create a secret with `mountOptions`
