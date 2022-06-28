@@ -19,10 +19,8 @@ package nfs
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"golang.org/x/net/context"
@@ -38,11 +36,6 @@ type NodeServer struct {
 	Driver  *Driver
 	mounter mount.Interface
 }
-
-const (
-	// Deadline for unmount. After this time, umount -f is performed.
-	unmountTimeout = time.Minute
-)
 
 // NodePublishVolume mount the volume
 func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
@@ -156,23 +149,6 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
-func (ns *NodeServer) IsNotMountPoint(path string) (bool, error) {
-	mtab, err := ns.mounter.List()
-	if err != nil {
-		return false, err
-	}
-
-	for _, mnt := range mtab {
-		// This is how a directory deleted on the NFS server looks like
-		deletedDir := fmt.Sprintf("%s\\040(deleted)", mnt.Path)
-
-		if mnt.Path == path || mnt.Path == deletedDir {
-			return false, nil
-		}
-	}
-	return true, nil
-}
-
 // NodeUnpublishVolume unmount the volume
 func (ns *NodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
 	volumeID := req.GetVolumeId()
@@ -183,6 +159,7 @@ func (ns *NodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 	if len(targetPath) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Target path missing in request")
 	}
+
 	klog.V(2).Infof("NodeUnpublishVolume: unmounting volume %s on %s", volumeID, targetPath)
 	err := mount.CleanupMountPoint(targetPath, ns.mounter, true /*extensiveMountPointCheck*/)
 	if err != nil {
@@ -191,35 +168,6 @@ func (ns *NodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpu
 	klog.V(2).Infof("NodeUnpublishVolume: unmount volume %s on %s successfully", volumeID, targetPath)
 
 	return &csi.NodeUnpublishVolumeResponse{}, nil
-}
-
-// tryUnmount calls plain "umount" and waits for unmountTimeout for it to finish.
-func (ns *NodeServer) tryUnmount(path string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), unmountTimeout)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, "umount", path)
-	out, cmderr := cmd.CombinedOutput()
-
-	// CombinedOutput() does not return DeadlineExceeded, make sure it's
-	// propagated on timeout.
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
-
-	if cmderr != nil {
-		return fmt.Errorf("failed to unmount volume: %s: %s", cmderr, string(out))
-	}
-	return nil
-}
-
-func (ns *NodeServer) forceUnmount(path string) error {
-	cmd := exec.Command("umount", "-f", path)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to force-unmount volume: %s: %s", err, string(out))
-	}
-	return nil
 }
 
 // NodeGetInfo return info of the node on which this plugin is running
