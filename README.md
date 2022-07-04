@@ -12,10 +12,9 @@ This is a repository for [NFS](https://en.wikipedia.org/wiki/Network_File_System
 |driver version  | supported k8s version | status |
 |----------------|-----------------------|--------|
 |master branch   | 1.20+                 | GA     |
-|v4.0.0          | 1.10+                 | GA     |
+|v4.1.0          | 1.20+                 | GA     |
+|v4.0.0          | 1.20+                 | GA     |
 |v3.1.0          | 1.19+                 | beta   |
-|v3.0.0          | 1.19+                 | beta   |
-|v2.0.0          | 1.14+                 | alpha  |
 
 ### Install driver on a Kubernetes cluster
  > [install NFS CSI driver on microk8s](https://microk8s.io/docs/nfs)
@@ -34,6 +33,10 @@ Please refer to [`nfs.csi.k8s.io` driver parameters](./docs/driver-parameters.md
 
 ## Kubernetes Development
 Please refer to [development guide](./docs/csi-dev.md)
+
+### View CI Results
+ - testgrid [sig-storage-csi-nfs](https://testgrid.k8s.io/sig-storage-csi-other) dashboard.
+ - Driver image build pipeline: [post-csi-driver-nfs-push-images](https://k8s-testgrid.appspot.com/sig-storage-image-build#post-csi-driver-nfs-push-images)
 
 ### Community, discussion, contribution, and support
 
