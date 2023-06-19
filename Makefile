@@ -27,7 +27,7 @@ include release-tools/build.make
 
 GIT_COMMIT = $(shell git rev-parse HEAD)
 BUILD_DATE = $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
-IMAGE_VERSION ?= v4.2.0
+IMAGE_VERSION ?= v4.4.0
 LDFLAGS = -X ${PKG}/pkg/nfs.driverVersion=${IMAGE_VERSION} -X ${PKG}/pkg/nfs.gitCommit=${GIT_COMMIT} -X ${PKG}/pkg/nfs.buildDate=${BUILD_DATE}
 EXT_LDFLAGS = -s -w -extldflags "-static"
 # Use a custom version for E2E tests if we are testing in CI
@@ -147,7 +147,6 @@ e2e-bootstrap: install-helm
 	OUTPUT_TYPE=registry $(MAKE) container push
 	helm install csi-driver-nfs ./charts/latest/csi-driver-nfs --namespace kube-system --wait --timeout=15m -v=5 --debug \
 		${E2E_HELM_OPTIONS} \
-		--set controller.dnsPolicy=ClusterFirstWithHostNet \
 		--set controller.logLevel=8 \
 		--set node.logLevel=8
 
