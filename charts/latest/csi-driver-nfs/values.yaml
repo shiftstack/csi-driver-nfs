@@ -57,6 +57,7 @@ controller:
   defaultOnDeletePolicy: delete  # available values: delete, retain
   affinity: {}
   nodeSelector: {}
+  priorityClassName: system-cluster-critical
   tolerations:
     - key: "node-role.kubernetes.io/master"
       operator: "Exists"
@@ -102,6 +103,7 @@ node:
     healthPort: 29653
   affinity: {}
   nodeSelector: {}
+  priorityClassName: system-cluster-critical
   tolerations:
     - operator: "Exists"
   resources:
@@ -125,8 +127,9 @@ node:
         memory: 20Mi
 
 externalSnapshotter:
-  enabled: true
+  enabled: false
   name: snapshot-controller
+  priorityClassName: system-cluster-critical
   controller:
     replicas: 1
   resources:
@@ -135,6 +138,10 @@ externalSnapshotter:
     requests:
       cpu: 10m
       memory: 20Mi
+  # Create volume snapshot CRDs. 
+  customResourceDefinitions:
+    enabled: true   #if set true, VolumeSnapshot, VolumeSnapshotContent and VolumeSnapshotClass CRDs will be created. Set it false, If they already exist in cluster.
+
 ## Reference to one or more secrets to be used when pulling images
 ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 ##
