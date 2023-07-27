@@ -4,6 +4,7 @@
  - [install Helm](https://helm.sh/docs/intro/quickstart/#install-helm)
 
 ### Tips
+ - install csi snapshot controller: `--set externalSnapshotter.enabled=true`
  - run controller on control plane node: `--set controller.runOnControlPlane=true`
  - set replica of controller as `2`: `--set controller.replicas=2`
  - Microk8s based kubernetes recommended settings:
@@ -72,6 +73,7 @@ The following table lists the configurable parameters of the latest NFS CSI Driv
 | `controller.affinity`                                 | controller pod affinity                               | `{}`                                                             |
 | `controller.nodeSelector`                             | controller pod node selector                          | `{}`                                                             |
 | `controller.tolerations`                              | controller pod tolerations                            |                                                              |
+| `controller.priorityClassName`                        | controller pod priorityClassName                      | `system-cluster-critical`                                                             |
 | `controller.resources.csiProvisioner.limits.memory`   | csi-provisioner memory limits                         | 100Mi                                                          |
 | `controller.resources.csiProvisioner.requests.cpu`    | csi-provisioner cpu requests limits                   | 10m                                                            |
 | `controller.resources.csiProvisioner.requests.memory` | csi-provisioner memory requests limits                | 20Mi                                                           |
@@ -88,6 +90,7 @@ The following table lists the configurable parameters of the latest NFS CSI Driv
 | `node.livenessProbe.healthPort `                  | the health check port for liveness probe                    |`29653`                                                           |
 | `node.affinity`                                      | node pod affinity                                     | {}                                                             |
 | `node.nodeSelector`                                   | node pod node selector                                | `{}`                                                             |
+| `node.priorityClassName`                              | node pod priority class name                          | `system-cluster-critical`                                                             |
 | `node.tolerations`                              | node pod tolerations                            |                                                              |
 | `node.resources.livenessProbe.limits.memory`          | liveness-probe memory limits                          | 100Mi                                                          |
 | `node.resources.livenessProbe.requests.cpu`           | liveness-probe cpu requests limits                    | 10m                                                            |
@@ -98,6 +101,13 @@ The following table lists the configurable parameters of the latest NFS CSI Driv
 | `node.resources.nfs.limits.memory`                    | csi-driver-nfs memory limits                         | 300Mi                                                         |
 | `node.resources.nfs.requests.cpu`                     | csi-driver-nfs cpu requests limits                   | 10m                                                            |
 | `node.resources.nfs.requests.memory`                  | csi-driver-nfs memory requests limits                | 20Mi                                                           |
+| `externalSnapshotter.enabled`                         | enable snapshot-controller                         | `false`
+| `externalSnapshotter.name`                            | name of snapshot-controller                         | `snapshot-controller`
+| `externalSnapshotter.controller.replicas`             | replica number of snapshot-controller                         | 1
+| `externalSnapshotter.resources.limits.memory`         | snapshot-controller memory limits                          | 300Mi                                                          |
+| `externalSnapshotter.resources.requests.cpu`          | snapshot-controller cpu requests limits                    | 10m                                                            |
+| `externalSnapshotter.resources.requests.memory`       | snapshot-controller memory requests limits                 | 20Mi                                                           |
+
 
 ## troubleshooting
  - Add `--wait -v=5 --debug` in `helm install` command to get detailed error
