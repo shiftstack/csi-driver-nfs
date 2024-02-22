@@ -1,6 +1,7 @@
 # NFS CSI driver for Kubernetes
 ![build status](https://github.com/kubernetes-csi/csi-driver-nfs/actions/workflows/linux.yaml/badge.svg)
 [![Coverage Status](https://coveralls.io/repos/github/kubernetes-csi/csi-driver-nfs/badge.svg?branch=master)](https://coveralls.io/github/kubernetes-csi/csi-driver-nfs?branch=master)
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/csi-driver-nfs)](https://artifacthub.io/packages/search?repo=csi-driver-nfs)
 
 ### Overview
 
@@ -12,9 +13,9 @@ This is a repository for [NFS](https://en.wikipedia.org/wiki/Network_File_System
 |driver version  | supported k8s version | status |
 |----------------|-----------------------|--------|
 |master branch   | 1.21+                 | GA     |
+|v4.6.0          | 1.21+                 | GA     |
+|v4.5.0          | 1.21+                 | GA     |
 |v4.4.0          | 1.21+                 | GA     |
-|v4.3.0          | 1.21+                 | GA     |
-|v4.2.0          | 1.21+                 | GA     |
 
 ### Install driver on a Kubernetes cluster
  > [install NFS CSI driver on microk8s](https://microk8s.io/docs/nfs)
@@ -27,6 +28,8 @@ Please refer to [`nfs.csi.k8s.io` driver parameters](./docs/driver-parameters.md
 ### Examples
  - [Basic usage](./deploy/example/README.md)
  - [fsGroupPolicy](./deploy/example/fsgroup)
+ - [Snapshot](./deploy/example/snapshot)
+ - [Volume cloning](./deploy/example/cloning)
 
 ### Troubleshooting
  - [CSI driver troubleshooting guide](./docs/csi-debug.md) 
@@ -36,7 +39,7 @@ Please refer to [development guide](./docs/csi-dev.md)
 
 ### View CI Results
  - testgrid [sig-storage-csi-nfs](https://testgrid.k8s.io/sig-storage-csi-other) dashboard.
- - Driver image build pipeline: [post-csi-driver-nfs-push-images](https://k8s-testgrid.appspot.com/sig-storage-image-build#post-csi-driver-nfs-push-images)
+ - Driver image build pipeline: [post-csi-driver-nfs-push-images](https://testgrid.k8s.io/sig-storage-image-build#post-csi-driver-nfs-push-images)
 
 ### Community, discussion, contribution, and support
 

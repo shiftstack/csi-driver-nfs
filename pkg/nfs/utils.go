@@ -32,13 +32,16 @@ import (
 	netutil "k8s.io/utils/net"
 )
 
+//nolint:revive
 const (
-	separator = "#"
-	delete    = "delete"
-	retain    = "retain"
+	separator                       = "#"
+	delete                          = "delete"
+	retain                          = "retain"
+	archive                         = "archive"
+	volumeOperationAlreadyExistsFmt = "An operation with the given Volume ID %s already exists"
 )
 
-var supportedOnDeleteValues = []string{"", delete, retain}
+var supportedOnDeleteValues = []string{"", delete, retain, archive}
 
 func validateOnDeleteValue(onDelete string) error {
 	for _, v := range supportedOnDeleteValues {
