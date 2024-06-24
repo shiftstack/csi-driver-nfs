@@ -16,7 +16,7 @@
 ### install a specific version
 ```console
 helm repo add csi-driver-nfs https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts
-helm install csi-driver-nfs csi-driver-nfs/csi-driver-nfs --namespace kube-system --version v4.6.0
+helm install csi-driver-nfs csi-driver-nfs/csi-driver-nfs --namespace kube-system --version v4.7.0
 ```
 
 ### install driver with customized driver name, deployment name
@@ -69,6 +69,7 @@ The following table lists the configurable parameters of the latest NFS CSI Driv
 | `controller.runOnControlPlane`                    | run controller on control plane node                                                          |`false`                                                           |
 | `controller.dnsPolicy`                            | dnsPolicy of controller driver, available values: `Default`, `ClusterFirstWithHostNet`, `ClusterFirst`                              | `ClusterFirstWithHostNet`                                                             |
 | `controller.defaultOnDeletePolicy`                | default policy for deleting subdirectory when deleting a volume, available values: `delete`, `retain`, `archive`                              | `delete`                                                             |
+| `controller.livenessProbe.healthPort ` | the health check port for liveness probe | `29652` |
 | `controller.logLevel`                             | controller driver log level                                                          |`5`                                                           |
 | `controller.workingMountDir`                      | working directory for provisioner to mount nfs shares temporarily                  | `/tmp`                                                             |
 | `controller.affinity`                                 | controller pod affinity                               | `{}`                                                             |
@@ -108,7 +109,7 @@ The following table lists the configurable parameters of the latest NFS CSI Driv
 | `externalSnapshotter.resources.limits.memory`         | snapshot-controller memory limits                          | 300Mi                                                          |
 | `externalSnapshotter.resources.requests.cpu`          | snapshot-controller cpu requests limits                    | 10m                                                            |
 | `externalSnapshotter.resources.requests.memory`       | snapshot-controller memory requests limits                 | 20Mi                                                           |
-
+| `storageClass.create` | create storageclass| `false` |  |
 
 ## troubleshooting
  - Add `--wait -v=5 --debug` in `helm install` command to get detailed error
