@@ -52,7 +52,7 @@ spec:
           effect: "NoSchedule"
       containers:
         - name: snapshot-controller
-          image: registry.k8s.io/sig-storage/snapshot-controller:v6.3.3
+          image: registry.k8s.io/sig-storage/snapshot-controller:v8.0.1
           args:
             - "--v=2"
             - "--leader-election=true"
@@ -63,3 +63,7 @@ spec:
             requests:
               cpu: 10m
               memory: 20Mi
+          securityContext:
+            capabilities:
+              drop:
+                - ALL
