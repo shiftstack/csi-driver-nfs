@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 var (
@@ -354,6 +355,76 @@ func TestValidateOnDeleteValue(t *testing.T) {
 		result := validateOnDeleteValue(test.onDelete)
 		if !reflect.DeepEqual(result, test.expected) {
 			t.Errorf("test[%s]: unexpected output: %v, expected result: %v", test.desc, result, test.expected)
+		}
+	}
+}
+
+func TestWaitForPathNotExistWithTimeout(t *testing.T) {
+	tests := []struct {
+		desc     string
+		path     string
+		timeout  int
+		expected error
+	}{
+		{
+			desc:     "path does not exist",
+			path:     "non-existent-path",
+			timeout:  1,
+			expected: nil,
+		},
+		{
+			desc:     "path exists",
+			path:     "/",
+			timeout:  2,
+			expected: fmt.Errorf("time out waiting for path / not exist"),
+		},
+	}
+
+	for _, test := range tests {
+		err := waitForPathNotExistWithTimeout(test.path, time.Duration(test.timeout))
+		if !reflect.DeepEqual(err, test.expected) {
+			t.Errorf("test[%s]: unexpected output: %v, expected result: %v", test.desc, err, test.expected)
+		}
+	}
+}
+
+func TestGetRootPath(t *testing.T) {
+	tests := []struct {
+		desc     string
+		dir      string
+		expected string
+	}{
+		{
+			desc:     "empty path",
+			dir:      "",
+			expected: "",
+		},
+		{
+			desc:     "root path",
+			dir:      "/",
+			expected: "",
+		},
+		{
+			desc:     "subdir path",
+			dir:      "/subdir",
+			expected: "",
+		},
+		{
+			desc:     "subdir path without leading slash",
+			dir:      "subdir",
+			expected: "subdir",
+		},
+		{
+			desc:     "multiple subdir path without leading slash",
+			dir:      "subdir/subdir2",
+			expected: "subdir",
+		},
+	}
+
+	for _, test := range tests {
+		result := getRootDir(test.dir)
+		if result != test.expected {
+			t.Errorf("Unexpected result: %s, expected: %s", result, test.expected)
 		}
 	}
 }
